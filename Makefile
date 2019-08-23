@@ -19,7 +19,7 @@ OBJ += bin/main.o
 
 WARNINGS=-w
 
-FLAGS=-std=c++11
+FLAGS=-std=c++14
 
 all:
 	g++ -c -g $(SRC) $(INCLUDES) $(WARNINGS) $(FLAGS)

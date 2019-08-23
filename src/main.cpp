@@ -9,8 +9,8 @@
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void processInput(GLFWwindow *window);
-void showFPS(GLFWwindow* window);
-const char* APP_TITLE = "Introduction to Modern OpenGL - Hello Colored Triangle";
+void showFPS(GLFWwindow *window);
+const char *APP_TITLE = "TV Emulator";
 GLFWwindow *window;
 
 // settings
@@ -19,23 +19,40 @@ const unsigned int SCR_HEIGHT = 600;
 unsigned int VBO, VAO;
 int shaderProgram, fragmentShader;
 
-const char *vertexShaderSource = "#version 330 core\n"
-                                 "layout (location = 0) in vec3 aPos;\n"
-                                 "layout (location = 1) in vec3 aColor;\n"
-                                 "out vec3 vertexColor;\n"
-                                 "void main()\n"
-                                 "{\n"
-                                 "   gl_Position = vec4(aPos, 1.0);\n"
-                                 "   vertexColor = aColor;\n"
-                                 "}\0";
-const char *fragmentShaderSource = "#version 330 core\n"
-                                   "in vec3 vertexColor;\n"
-                                   "out vec4 FragColor;\n"
-                                   "void main()\n"
-                                   "{\n"
-                                   "   FragColor = vec4(vertexColor,1.0);\n"
-                                   "}\n\0";
+const char *vertexShaderSource =
+    R"""(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+out vec3 vertexColor;
+void main()
+{
+    gl_Position = vec4(aPos, 1.0);
+    vertexColor = aColor;
+}
+)""";
 
+const char *fragmentShaderSource =
+    R"""(
+#version 330 core
+in vec3 vertexColor;
+out vec4 fragColor;
+
+highp float rand(vec2 co)
+{
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt= dot(co.xy ,vec2(a,b));
+    highp float sn= mod(dt,3.14);
+    return fract(sin(sn) * c);
+}
+
+void main()
+{
+    fragColor = vec4(rand(vertexColor.rg),rand(vertexColor.rb),rand(vertexColor.gb) ,1.0);
+}    
+)""";
 
 bool init()
 {
@@ -62,23 +79,23 @@ bool init()
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-	#ifdef __APPLE__
+#ifdef __APPLE__
     // glad: load all OpenGL function pointers
     // ---------------------------------------
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         return -1;
-    }	
-	#else
-	// Initialize GLEW
-	glewExperimental = GL_TRUE;
-	if (glewInit() != GLEW_OK)
-	{
-		std::cerr << "Failed to initialize GLEW" << std::endl;
-		return false;
-	}
-	#endif
+    }
+#else
+    // Initialize GLEW
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK)
+    {
+        std::cerr << "Failed to initialize GLEW" << std::endl;
+        return false;
+    }
+#endif
 
     // build and compile our shader program
     // ------------------------------------
@@ -125,82 +142,58 @@ bool init()
     }
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-    
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    float vertices[] = {
-         0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, //right
-         0.0f,  0.5f, 0.0f,  0.0f, 1.0f, 0.0f, //Top
-        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f, 1.0f//left   
-    };
-
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+}
 
-    //Triangle 1
+float generateRandomColor()
+{
+    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+}
+
+void updateBuffer()
+{
+    float vertices[] = {
+        -1.0f, -1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor(),
+        1.0f, -1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor(),
+        1.0f, 1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor(),
+        -1.0f, -1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor(),
+        -1.0f, 1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor(),
+        1.0f, 1.0f, 0.0f, generateRandomColor(), generateRandomColor(), generateRandomColor()
+
+    };
+
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(GLfloat)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void *)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
-
-    //Cleaning up
-    glBindBuffer(GL_ARRAY_BUFFER, NULL);
-    glBindVertexArray(NULL);
-
-    // uncomment this call to draw in wireframe polygons.
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
 void render()
 {
     while (!glfwWindowShouldClose(window))
     {
+        updateBuffer();
         showFPS(window);
-        // input
-        // -----
         processInput(window);
-
-        // render
-        // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // draw our first triangle
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        // glBindVertexArray(0); // no need to unbind it every time
-
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // optional: de-allocate all resources once they've outlived their purpose:
-    // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-
-    // glfw: terminate, clearing all previously allocated GLFW resources.
-    // ------------------------------------------------------------------
     glfwTerminate();
-}
-
-int main()
-{
-    init();
-    int nrAttributes;
-    glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &nrAttributes);
-    std::cout << "Maximum number of vertex attributes supported: " << nrAttributes << std::endl;
-    render();
-    return 0;
 }
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
@@ -224,34 +217,40 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 // Code computes the average frames per second, and also the average time it takes
 // to render one frame.  These stats are appended to the window caption bar.
 //-----------------------------------------------------------------------------
-void showFPS(GLFWwindow* window)
+void showFPS(GLFWwindow *window)
 {
-	static double previousSeconds = 0.0;
-	static int frameCount = 0;
-	double elapsedSeconds;
-	double currentSeconds = glfwGetTime(); // returns number of seconds since GLFW started, as double float
+    static double previousSeconds = 0.0;
+    static int frameCount = 0;
+    double elapsedSeconds;
+    double currentSeconds = glfwGetTime(); // returns number of seconds since GLFW started, as double float
 
-	elapsedSeconds = currentSeconds - previousSeconds;
+    elapsedSeconds = currentSeconds - previousSeconds;
 
-	// Limit text updates to 4 times per second
-	if (elapsedSeconds > 0.25)
-	{
-		previousSeconds = currentSeconds;
-		double fps = (double)frameCount / elapsedSeconds;
-		double msPerFrame = 1000.0 / fps;
+    // Limit text updates to 4 times per second
+    if (elapsedSeconds > 0.25)
+    {
+        previousSeconds = currentSeconds;
+        double fps = (double)frameCount / elapsedSeconds;
+        double msPerFrame = 1000.0 / fps;
 
-		// The C++ way of setting the window title
-		std::ostringstream outs;
-		outs.precision(3);	// decimal places
-		outs << std::fixed
-			<< APP_TITLE << "    "
-			<< "FPS: " << fps << "    "
-			<< "Frame Time: " << msPerFrame << " (ms)";
-		glfwSetWindowTitle(window, outs.str().c_str());
+        // The C++ way of setting the window title
+        std::ostringstream outs;
+        outs.precision(3); // decimal places
+        outs << std::fixed
+             << APP_TITLE << "    "
+             << "FPS: " << fps << "    "
+             << "Frame Time: " << msPerFrame << " (ms)";
+        glfwSetWindowTitle(window, outs.str().c_str());
 
-		// Reset for next average.
-		frameCount = 0;
-	}
+        // Reset for next average.
+        frameCount = 0;
+    }
+    frameCount++;
+}
 
-	frameCount++;
+int main()
+{
+    init();
+    render();
+    return 0;
 }
